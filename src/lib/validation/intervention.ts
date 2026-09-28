@@ -84,6 +84,11 @@ export const interventionAssignSchema = z.object({
   technicianId: nullableUuid,
 });
 
+/** Any mutation targeting an existing intervention. */
+export const interventionIdSchema = z.object({
+  interventionId: requiredUuid,
+});
+
 export const interventionPhotoSchema = z.object({
   interventionId: requiredUuid,
   kind: z.enum(['before', 'after']),
