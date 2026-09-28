@@ -18,42 +18,59 @@ export const interventionStatusSchema = z.enum([
 
 export const interventionPrioritySchema = z.enum(['low', 'normal', 'high', 'urgent']);
 
-export const interventionSchema = z
-  .object({
-    customerId: requiredUuid,
-    customerAddressId: nullableUuid,
-    technicianId: nullableUuid,
-    title: requiredText(2, 160, 'Title'),
-    description: nullableText(8000, 'Description'),
-    internalNotes: nullableText(8000, 'Internal notes'),
-    status: interventionStatusSchema.default('draft'),
-    priority: interventionPrioritySchema.default('normal'),
-    scheduledStart: nullableDateTime,
-    scheduledEnd: nullableDateTime,
-    /** Optional address override; footers fall back to the customer address. */
-    addressLine1: nullableText(160, 'Address'),
-    addressLine2: nullableText(160, 'Address line 2'),
-    postalCode: nullableText(20, 'Postal code'),
-    city: nullableText(80, 'City'),
-    country: z.preprocess(
-      (value) =>
-        typeof value === 'string' && value.trim() !== '' ? value.trim().toUpperCase() : 'FR',
-      z.string().length(2, 'Use a 2-letter country code'),
-    ),
-  })
-  .superRefine((data, ctx) => {
-    if (
-      data.scheduledStart &&
-      data.scheduledEnd &&
-      new Date(data.scheduledEnd).getTime() < new Date(data.scheduledStart).getTime()
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['scheduledEnd'],
-        message: 'End time must be after the start time',
-      });
-    }
-  });
+const countryField = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() !== '' ? value.trim().toUpperCase() : 'FR'),
+  z.string().length(2, 'Use a 2-letter country code'),
+);
+
+/**
+ * Shared shape between the create and update forms. Kept as a plain object so
+ * `interventionUpdateSchema` can `.extend()` it without duplicating rules.
+ */
+const interventionFields = {
+  customerId: requiredUuid,
+  customerAddressId: nullableUuid,
+  technicianId: nullableUuid,
+  title: requiredText(2, 160, 'Title'),
+  description: nullableText(8000, 'Description'),
+  internalNotes: nullableText(8000, 'Internal notes'),
+  status: interventionStatusSchema.default('draft'),
+  priority: interventionPrioritySchema.default('normal'),
+  scheduledStart: nullableDateTime,
+  scheduledEnd: nullableDateTime,
+  /** Optional address override; footers fall back to the customer address. */
+  addressLine1: nullableText(160, 'Address'),
+  addressLine2: nullableText(160, 'Address line 2'),
+  postalCode: nullableText(20, 'Postal code'),
+  city: nullableText(80, 'City'),
+  country: countryField,
+};
+
+const interventionBaseSchema = z.object(interventionFields);
+
+function refineScheduleOrder(
+  data: { scheduledStart: string | null; scheduledEnd: string | null },
+  ctx: z.RefinementCtx,
+) {
+  if (
+    data.scheduledStart &&
+    data.scheduledEnd &&
+    new Date(data.scheduledEnd).getTime() < new Date(data.scheduledStart).getTime()
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['scheduledEnd'],
+      message: 'End time must be after the start time',
+    });
+  }
+}
+
+export const interventionSchema = interventionBaseSchema.superRefine(refineScheduleOrder);
+
+/** Same rules as the create form, targeting an existing record. */
+export const interventionUpdateSchema = interventionBaseSchema
+  .extend({ id: requiredUuid })
+  .superRefine(refineScheduleOrder);
 
 /** Fast status transition used by the planning board and detail page. */
 export const interventionStatusChangeSchema = z.object({
@@ -88,5 +105,7 @@ export const interventionPhotoDeleteSchema = z.object({
 });
 
 export type InterventionInput = z.infer<typeof interventionSchema>;
+export type InterventionUpdateInput = z.infer<typeof interventionUpdateSchema>;
+
 export type InterventionStatusChangeInput = z.infer<typeof interventionStatusChangeSchema>;
 export type InterventionPhotoInput = z.infer<typeof interventionPhotoSchema>;
