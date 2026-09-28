@@ -133,7 +133,8 @@ export function effectiveInvoiceStatus(
     if (!Number.isNaN(due.getTime()) && due.getTime() < today.getTime()) return 'overdue';
   }
 
-  return invoice.status === 'partial' ? 'partial' : 'sent';
+  // Mirrors `sync_invoice_payment_state()`: any recorded payment means partial.
+  return Number(invoice.amount_paid) > 0 || invoice.status === 'partial' ? 'partial' : 'sent';
 }
 
 export function isInvoiceOverdue(
