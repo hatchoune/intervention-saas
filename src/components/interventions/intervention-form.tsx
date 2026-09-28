@@ -272,7 +272,7 @@ export function InterventionForm({
               <Textarea id="internalNotes" name="internalNotes" defaultValue={defaults.internalNotes} />
             ) : (
               <>
-                <input type="hidden" name="internalNotes" value={defaults.internalNotes} />
+                <input id="internalNotes" type="hidden" name="internalNotes" value={defaults.internalNotes} />
                 <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm whitespace-pre-wrap text-slate-600">
                   {defaults.internalNotes || 'No internal notes.'}
                 </p>
