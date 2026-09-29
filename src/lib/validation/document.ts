@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-"import {\n  decimalNumber,\n  formDataToObject,\n  nullableDate,"
+import type { DiscountType } from '@/types/database';
+import {
+  decimalNumber,
+  nullableDate,
   nullableText,
   requiredDate,
   requiredUuid,
@@ -23,7 +26,9 @@ export const discountTypeSchema = z.enum(['none', 'percentage', 'fixed']);
  * (`lineTotal`, VAT) are always recomputed by the database triggers.
  */
 export const documentLineSchema = z.object({
-  id: z.uuid().nullish(),
+  // Normalised to `null` so the editor's `EditableLine` shape and the sync
+  // helpers always see an explicit value instead of `undefined`.
+  id: z.uuid().nullish().transform((value) => value ?? null),
   description: z.preprocess(
     (value) => (typeof value === 'string' ? value.trim() : value),
     z.string({ error: 'Description is required' }).min(1, 'Description is required').max(500),
@@ -50,6 +55,20 @@ export const documentLinesSchema = z
   .min(1, 'Add at least one line item')
   .max(200, 'Too many line items (200 max)');
 
+/**
+ * Line items arrive from the form as one JSON string: a nested array cannot be
+ * expressed with plain `FormData` names, and a hidden JSON field keeps the
+ * payload a single, validated value instead of dozens of indexed keys.
+ */
+export const documentLinesField = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
+}, documentLinesSchema);
+
 const documentBaseSchema = z.object({
   customerId: requiredUuid,
   interventionId: z.uuid().nullish().transform((value) => value ?? null),
@@ -65,48 +84,70 @@ const documentBaseSchema = z.object({
   internalNotes: nullableText(4000, 'Internal notes'),
 });
 
-export const quoteSchema = documentBaseSchema
-  .extend({
-    status: quoteStatusSchema.default('draft'),
-    validUntil: nullableDate,
-    lines: documentLinesSchema,
-  })
-  .superRefine((data, ctx) => {
-    if (data.validUntil && data.validUntil < data.issueDate) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['validUntil'],
-        message: 'The validity date must be after the issue date',
-      });
-    }
+function refineQuoteDates(
+  data: { issueDate: string; validUntil: string | null; discountType: DiscountType; discountValue: number },
+  ctx: z.RefinementCtx,
+): void {
+  if (data.validUntil && data.validUntil < data.issueDate) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['validUntil'],
+      message: 'The validity date must be after the issue date',
+    });
+  }
 
-    if (data.discountType === 'percentage' && data.discountValue > 100) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['discountValue'],
-        message: 'A percentage discount cannot exceed 100%',
-      });
-    }
-  });
+  if (data.discountType === 'percentage' && data.discountValue > 100) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['discountValue'],
+      message: 'A percentage discount cannot exceed 100%',
+    });
+  }
+}
+
+const quoteFields = {
+  status: quoteStatusSchema.default('draft'),
+  validUntil: nullableDate,
+};
+
+export const quoteSchema = documentBaseSchema
+  .extend({ ...quoteFields, lines: documentLinesSchema })
+  .superRefine(refineQuoteDates);
+
+/** Same rules as `quoteSchema`, with the line items coming from a form. */
+export const quoteFormSchema = documentBaseSchema
+  .extend({ ...quoteFields, lines: documentLinesField })
+  .superRefine(refineQuoteDates);
+
+function refineInvoiceDates(
+  data: { issueDate: string; dueDate: string | null },
+  ctx: z.RefinementCtx,
+): void {
+  if (data.dueDate && data.dueDate < data.issueDate) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['dueDate'],
+      message: 'The due date must be after the issue date',
+    });
+  }
+}
+
+const invoiceFields = {
+  status: invoiceStatusSchema.default('draft'),
+  dueDate: nullableDate,
+  amountPaid: decimalNumber({ label: 'Amount paid', min: 0, max: 10_000_000, defaultValue: 0 }),
+  paymentMethod: nullableText(60, 'Payment method'),
+  paymentTerms: nullableText(300, 'Payment terms'),
+};
 
 export const invoiceSchema = documentBaseSchema
-  .extend({
-    status: invoiceStatusSchema.default('draft'),
-    dueDate: nullableDate,
-    amountPaid: decimalNumber({ label: 'Amount paid', min: 0, max: 10_000_000, defaultValue: 0 }),
-    paymentMethod: nullableText(60, 'Payment method'),
-    paymentTerms: nullableText(300, 'Payment terms'),
-    lines: documentLinesSchema,
-  })
-  .superRefine((data, ctx) => {
-    if (data.dueDate && data.dueDate < data.issueDate) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['dueDate'],
-        message: 'The due date must be after the issue date',
-      });
-    }
-  });
+  .extend({ ...invoiceFields, lines: documentLinesSchema })
+  .superRefine(refineInvoiceDates);
+
+/** Same rules as `invoiceSchema`, with the line items coming from a form. */
+export const invoiceFormSchema = documentBaseSchema
+  .extend({ ...invoiceFields, lines: documentLinesField })
+  .superRefine(refineInvoiceDates);
 
 export const invoicePaymentSchema = z.object({
   invoiceId: requiredUuid,
@@ -131,7 +172,47 @@ export const documentStatusChangeSchema = z.object({
   status: z.string().min(3).max(20),
 });
 
+/** Targeted mutations on an existing quote / invoice. */
+export const quoteIdSchema = z.object({ quoteId: requiredUuid });
+export const invoiceIdSchema = z.object({ invoiceId: requiredUuid });
+
 export type QuoteInput = z.infer<typeof quoteSchema>;
 export type InvoiceInput = z.infer<typeof invoiceSchema>;
 export type DocumentLineInput = z.infer<typeof documentLineSchema>;
 export type InvoicePaymentInput = z.infer<typeof invoicePaymentSchema>;
+
+export type QuoteFormInput = z.infer<typeof quoteFormSchema>;
+export type InvoiceFormInput = z.infer<typeof invoiceFormSchema>;
+
+/** Shape of a line as sent back to the client editor. */
+export interface EditableLine {
+  id: string | null;
+  description: string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  vatRate: number;
+  discountPercent: number;
+}
+
+export function toEditableLines(
+  rows: readonly {
+    id: string;
+    description: string;
+    unit: string;
+    quantity: number | string;
+    unit_price: number | string;
+    vat_rate: number | string;
+    discount_percent: number | string;
+  }[],
+): EditableLine[] {
+  return rows.map((row) => ({
+    id: row.id,
+    description: row.description,
+    unit: row.unit,
+    quantity: Number(row.quantity),
+    unitPrice: Number(row.unit_price),
+    vatRate: Number(row.vat_rate),
+    discountPercent: Number(row.discount_percent),
+  }));
+}

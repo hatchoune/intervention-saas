@@ -11,6 +11,8 @@ const config = [
       'next-env.d.ts',
       '**/*.config.mjs',
       '**/*.config.js',
+      // Agent/tooling scratch space (nested git worktrees) — never part of the build.
+      '.kilo/**',
     ],
   },
   ...nextCoreWebVitals,

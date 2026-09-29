@@ -97,6 +97,18 @@ export const QUOTE_STATUS_META: Record<QuoteStatus, StatusMeta<QuoteStatus>> = {
 
 export const QUOTE_STATUSES = Object.keys(QUOTE_STATUS_META) as QuoteStatus[];
 
+/**
+ * Legal status moves for a quote. Enforced by `changeQuoteStatusAction`; the
+ * UI reads the same table to only offer valid choices.
+ */
+export const QUOTE_STATUS_TRANSITIONS: Record<QuoteStatus, QuoteStatus[]> = {
+  draft: ['draft', 'sent'],
+  sent: ['sent', 'accepted', 'rejected', 'expired', 'draft'],
+  accepted: ['accepted'],
+  rejected: ['rejected', 'draft'],
+  expired: ['expired', 'draft'],
+};
+
 // ---------------------------------------------------------------------------
 // Invoices
 // ---------------------------------------------------------------------------
@@ -111,6 +123,21 @@ export const INVOICE_STATUS_META: Record<InvoiceStatus, StatusMeta<InvoiceStatus
 };
 
 export const INVOICE_STATUSES = Object.keys(INVOICE_STATUS_META) as InvoiceStatus[];
+
+/**
+ * Status moves the app may perform on an invoice. `partial`/`paid`/`overdue`
+ * are derived by `sync_invoice_payment_state` and the nightly sweep, so they
+ * are self-loops here: setting them by hand would be reverted anyway.
+ * Enforced by `changeInvoiceStatusAction`.
+ */
+export const INVOICE_STATUS_TRANSITIONS: Record<InvoiceStatus, InvoiceStatus[]> = {
+  draft: ['draft', 'sent', 'cancelled'],
+  sent: ['sent', 'cancelled'],
+  partial: ['partial'],
+  overdue: ['overdue'],
+  paid: ['paid'],
+  cancelled: ['cancelled'],
+};
 
 /** Open (unpaid) statuses used by the dashboard and filters. */
 export const OPEN_INVOICE_STATUSES: InvoiceStatus[] = ['sent', 'partial', 'overdue'];

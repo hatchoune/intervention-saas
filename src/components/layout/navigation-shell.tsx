@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { LogOut, Menu, X } from 'lucide-react';
 
 import type { NavItem, NavSection } from '@/components/layout/nav-config';
@@ -39,12 +39,21 @@ export function NavigationShell({
   userEmail,
 }: NavigationShellProps) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  /**
+   * The drawer is stored as "the route it was opened on" instead of a boolean.
+   * Navigating therefore closes it automatically — the derived value cannot stay
+   * `true` once `pathname` changes — with no effect and no extra render.
+   */
+  const [openedOn, setOpenedOn] = useState<string | null>(null);
+  const open = openedOn === pathname;
 
-  // Close the drawer whenever the route changes.
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
+  function openDrawer(): void {
+    setOpenedOn(pathname);
+  }
+
+  function closeDrawer(): void {
+    setOpenedOn(null);
+  }
 
   const navList = (
     <nav aria-label="Main navigation" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
@@ -126,7 +135,7 @@ export function NavigationShell({
       <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-3 py-2.5 backdrop-blur lg:hidden print-hidden">
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openDrawer}
           aria-label="Open navigation menu"
           aria-expanded={open}
           className="rounded-lg p-2 text-slate-600 transition-colors hover:bg-slate-100"
@@ -154,7 +163,7 @@ export function NavigationShell({
             'absolute inset-0 bg-slate-900/40 transition-opacity',
             open ? 'opacity-100' : 'opacity-0',
           )}
-          onClick={() => setOpen(false)}
+          onClick={closeDrawer}
         />
         <div
           role="dialog"
@@ -169,7 +178,7 @@ export function NavigationShell({
             <span className="px-1 text-sm font-semibold text-slate-900">Menu</span>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={closeDrawer}
               aria-label="Close navigation menu"
               className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100"
             >

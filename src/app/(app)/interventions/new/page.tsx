@@ -11,10 +11,21 @@ import {
 } from '@/lib/db/interventions';
 import { INTERVENTION_STATUSES } from '@/lib/domain/status';
 
+type SearchParams = Record<string, string | string[] | undefined>;
+
+function single(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
 /** All statuses are reachable on creation; transitions are checked afterwards. */
-export default async function NewInterventionPage() {
+export default async function NewInterventionPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const session = await requireCapability('interventions.manage', '/interventions/new');
   const organizationId = session.organization.id;
+  const params = await searchParams;
 
   const [customers, addresses, technicians] = await Promise.all([
     listCustomerOptions(organizationId),
@@ -22,10 +33,17 @@ export default async function NewInterventionPage() {
     listTechnicianOptions(organizationId),
   ]);
 
+  // Pre-select a customer when arriving from a customer page.
+  const requestedCustomerId = single(params.customerId);
+  const customerId = customers.some((customer) => customer.id === requestedCustomerId)
+    ? requestedCustomerId
+    : '';
+  const defaultAddress = addresses.find((address) => address.customer_id === customerId && address.is_default);
+
   const defaults: InterventionFormDefaults = {
     id: null,
-    customerId: '',
-    customerAddressId: '',
+    customerId,
+    customerAddressId: defaultAddress?.id ?? '',
     technicianId: '',
     title: '',
     description: '',
@@ -34,11 +52,11 @@ export default async function NewInterventionPage() {
     priority: 'normal',
     scheduledStart: null,
     scheduledEnd: null,
-    addressLine1: '',
-    addressLine2: '',
-    postalCode: '',
-    city: '',
-    country: 'FR',
+    addressLine1: defaultAddress?.address_line1 ?? '',
+    addressLine2: defaultAddress?.address_line2 ?? '',
+    postalCode: defaultAddress?.postal_code ?? '',
+    city: defaultAddress?.city ?? '',
+    country: defaultAddress?.country ?? 'FR',
   };
 
   return (

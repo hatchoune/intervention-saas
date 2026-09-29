@@ -9,6 +9,7 @@ import {
   nullableText,
   nullableUuid,
   requiredText,
+  requiredUuid,
 } from '@/lib/validation/common';
 
 export const technicianStatusSchema = z.enum(['available', 'busy', 'on_leave', 'inactive']);
@@ -41,7 +42,15 @@ export const technicianSchema = z.object({
   ),
 });
 
-/** Inline status change from the technician list (own record). */
+/** Same rules as the create form, targeting an existing record. */
+export const technicianUpdateSchema = technicianSchema.extend({ id: requiredUuid });
+
+/** Any mutation targeting an existing technician. */
+export const technicianIdSchema = z.object({ technicianId: requiredUuid });
+
+/**
+ * Inline status change from the technician list (own record).
+ */
 export const technicianStatusUpdateSchema = z.object({
   technicianId: z.uuid('Invalid technician'),
   status: technicianStatusSchema,
@@ -56,3 +65,4 @@ export const technicianRateSchema = decimalNumber({
 });
 
 export type TechnicianInput = z.infer<typeof technicianSchema>;
+export type TechnicianUpdateInput = z.infer<typeof technicianUpdateSchema>;

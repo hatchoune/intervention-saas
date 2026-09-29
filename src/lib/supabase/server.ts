@@ -9,8 +9,11 @@ import type { Database } from '@/types/database';
  * Route Handlers. Authenticated as the current user, so RLS applies.
  */
 export async function createSupabaseServerClient() {
-  const { url, anonKey } = requireSupabaseConfig();
+  // The cookie store is read before the configuration check: `cookies()` is what
+  // marks the surrounding route as dynamic, so a missing `.env.local` surfaces as
+  // a readable error at request time instead of a pre-render crash at build time.
   const cookieStore = await cookies();
+  const { url, anonKey } = requireSupabaseConfig();
 
   return createServerClient<Database>(url, anonKey, {
     cookies: {
