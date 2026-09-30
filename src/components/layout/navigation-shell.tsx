@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { LogOut, Menu, X } from 'lucide-react';
 
 import type { NavItem, NavSection } from '@/components/layout/nav-config';
@@ -40,11 +40,15 @@ export function NavigationShell({
 }: NavigationShellProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [drawerPathname, setDrawerPathname] = useState(pathname);
 
-  // Close the drawer whenever the route changes.
-  useEffect(() => {
+  // Close the drawer whenever the route changes. Comparing the previous
+  // pathname and adjusting state during render (instead of in an effect)
+  // is the React-recommended pattern and avoids a cascading re-render.
+  if (drawerPathname !== pathname) {
+    setDrawerPathname(pathname);
     setOpen(false);
-  }, [pathname]);
+  }
 
   const navList = (
     <nav aria-label="Main navigation" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
