@@ -9,6 +9,9 @@ import { PageContainer } from '@/components/ui/page-header';
 import { getSessionContext } from '@/lib/auth/session';
 import { isSupabaseConfigured } from '@/lib/env';
 
+// Reads the invitation and session from the database: never prerendered.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = { title: 'Organisation invitation' };
 
 /**

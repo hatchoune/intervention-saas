@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { getCurrentUser } from '@/lib/auth/session';
 import { isSupabaseConfigured } from '@/lib/env';
 
+// Resolves the current user from cookies: render per request, never prerendered.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = { title: 'Create your account' };
 
 export default async function SignUpPage() {

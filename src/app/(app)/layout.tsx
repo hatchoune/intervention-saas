@@ -5,6 +5,12 @@ import { requireOrganization } from '@/lib/auth/session';
 import { ORGANIZATION_ROLE_META } from '@/lib/domain/status';
 
 /**
+ * Every page in this shell resolves the Supabase session from cookies, so the
+ * whole segment renders per request — the build never needs a database.
+ */
+export const dynamic = 'force-dynamic';
+
+/**
  * Authenticated application shell. Every page under `(app)` renders inside it,
  * so `requireOrganization()` guarantees there is a session *and* a tenant.
  */

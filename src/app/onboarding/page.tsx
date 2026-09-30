@@ -7,6 +7,9 @@ import { PageContainer } from '@/components/ui/page-header';
 import { getSessionContext } from '@/lib/auth/session';
 import { isSupabaseConfigured } from '@/lib/env';
 
+// Resolves the session from cookies: render per request, never prerendered.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = { title: 'Set up your organisation' };
 
 /**

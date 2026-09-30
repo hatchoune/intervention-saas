@@ -6,6 +6,9 @@ import { Alert } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getCurrentUser } from '@/lib/auth/session';
 
+// Resolves the current user from cookies: render per request, never prerendered.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = { title: 'Choose a new password' };
 
 /**
